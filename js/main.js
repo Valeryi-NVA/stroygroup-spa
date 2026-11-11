@@ -1,5 +1,5 @@
 import { initAuth } from './auth.js';
-import { bindRouter, renderApp } from './router.js';
+import { bindRouter, renderApp } from './router.js?v=mobile-drawer-20261111';
 import { ACTIONS } from './actions.js';
 import { onPersistenceError } from './storage.js';
 import { showMessage } from './ui.js';

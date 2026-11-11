@@ -1,7 +1,7 @@
 import { DB, apiRequest, clearAuthToken, getAuthToken, loadServerState, save, setAuthToken } from './storage.js';
 import { ROLES_DEF, canAccess } from './roles.js';
 import { $, formatPhone, normalizePhone } from './utils.js';
-import { renderApp } from './router.js';
+import { renderApp } from './router.js?v=mobile-drawer-20261111';
 
 /** Return the logged-in user or null. */
 export function getCurrentUser() {

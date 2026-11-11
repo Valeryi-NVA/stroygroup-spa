@@ -2,7 +2,7 @@ import { DB, apiRequest, replaceDB, save } from './storage.js';
 import { findById } from './business.js';
 import { today, uid } from './utils.js';
 import { openForm, setFormError, showMessage } from './ui.js';
-import { renderApp } from './router.js';
+import { renderApp } from './router.js?v=mobile-drawer-20261111';
 
 var EMPLOYEE_ROLES = ['Цех', 'Монтажник', 'Менеджер', 'Бухгалтер', 'Начальник цеха', 'Проектировщик'];
 var PAY_TYPES = [

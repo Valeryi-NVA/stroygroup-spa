@@ -1,7 +1,7 @@
 import { DB, replaceDB, save, seed } from './storage.js';
 import { findById } from './business.js';
 import { getCurrentUser } from './auth.js';
-import { renderApp } from './router.js';
+import { renderApp } from './router.js?v=mobile-drawer-20261111';
 import { formCost, formEmployee, formObject, formOutput, formPayment, formTimesheet, formTrip, formUser, formVehicle, formWork } from './forms.js';
 import { showMessage } from './ui.js';
 
