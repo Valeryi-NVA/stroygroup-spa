@@ -5,7 +5,7 @@ import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
-const root = fileURLToPath(new URL('.', import.meta.url));
+const root = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const port = Number(process.env.PORT || 10000);
 const secret = process.env.AUTH_SECRET;
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required; local/file storage is disabled.');
