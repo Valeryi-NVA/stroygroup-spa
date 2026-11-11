@@ -410,7 +410,7 @@ async function serveStatic(pathname, response) {
     response.writeHead(200, {
       'content-type': mimeTypes[extname(candidate).toLowerCase()] || 'application/octet-stream',
       'content-length': content.length,
-      'cache-control': candidate.endsWith('index.html') ? 'no-cache' : 'public, max-age=300'
+      'cache-control': /\.(?:html|css|js)$/.test(candidate) ? 'no-cache' : 'public, max-age=300'
     });
     response.end(content);
   } catch (error) {
