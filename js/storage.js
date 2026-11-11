@@ -31,6 +31,20 @@ export function migrate(db) {
   for (index = 0; index < arrays.length; index += 1) {
     if (Object.prototype.toString.call(db[arrays[index]]) !== '[object Array]') db[arrays[index]] = [];
   }
+  for (index = 0; index < db.employees.length; index += 1) {
+    var employee = db.employees[index];
+    if (!employee || typeof employee !== 'object') continue;
+    if (employee.workshopRate === undefined && employee.installRate === undefined) {
+      var legacyRate = Number(employee.rate);
+      if (!isFinite(legacyRate)) legacyRate = 0;
+      employee.workshopRate = employee.role === 'Монтажник' ? 0 : legacyRate;
+      employee.installRate = employee.role === 'Монтажник' ? legacyRate : 0;
+    } else {
+      if (employee.workshopRate === undefined) employee.workshopRate = 0;
+      if (employee.installRate === undefined) employee.installRate = 0;
+    }
+    if (Object.prototype.hasOwnProperty.call(employee, 'rate')) delete employee.rate;
+  }
   if (!db.settings || typeof db.settings !== 'object') db.settings = {};
   if (typeof db.settings.from !== 'string') db.settings.from = '';
   if (typeof db.settings.to !== 'string') db.settings.to = '';

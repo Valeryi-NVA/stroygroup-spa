@@ -190,14 +190,14 @@ label.fld input:focus, label.fld select:focus, label.fld textarea:focus { outlin
 
 :root {
   color-scheme: dark;
-  --bg: #070a09;
-  --card: rgba(21, 28, 24, .74);
-  --text: #f2f7f3;
-  --muted: #a4b4aa;
-  --accent: #73f5a2;
-  --accent-soft: rgba(115, 245, 162, .14);
-  --border: rgba(220, 255, 232, .13);
-  --ok: #73f5a2;
+  --bg: #090b0a;
+  --card: rgba(25, 29, 27, .82);
+  --text: #f1f5f2;
+  --muted: #a3aca6;
+  --accent: #70d994;
+  --accent-soft: rgba(112, 217, 148, .14);
+  --border: rgba(190, 202, 194, .16);
+  --ok: #70d994;
   --warn: #f8c56b;
   --bad: #ff777d;
   --radius: 16px;
@@ -206,9 +206,9 @@ label.fld input:focus, label.fld select:focus, label.fld textarea:focus { outlin
 body {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse at 12% 0%, rgba(32, 113, 66, .32), transparent 38%),
-    radial-gradient(ellipse at 90% 15%, rgba(25, 82, 59, .25), transparent 32%),
-    linear-gradient(145deg, #070a09, #0b100d 55%, #080b09);
+    radial-gradient(ellipse at 12% 0%, rgba(33, 105, 62, .28), transparent 38%),
+    radial-gradient(ellipse at 90% 15%, rgba(85, 96, 89, .18), transparent 32%),
+    linear-gradient(145deg, #090b0a, #111513 55%, #090b0a);
   color: var(--text);
 }
 .auth-screen { background: transparent; }
@@ -224,26 +224,26 @@ dialog, .dlg-foot, .user-chip, .auth-tabs, th, .total-row td, .quick-admin,
 }
 .auth-card { border-radius: 24px; }
 .auth-tabs button { color: var(--muted); }
-.auth-tabs button.active { background: rgba(115, 245, 162, .16); color: var(--text); }
+.auth-tabs button.active { background: rgba(112, 217, 148, .16); color: var(--text); }
 .auth-hint, .card .k, .card .s, .sub, .money, .sub-head,
 .label.fld, label.fld, .user-role, .brand-sub { color: var(--muted); }
 .auth-hint b { color: var(--text); }
 .brand-title { color: var(--text); letter-spacing: .02em; }
 .logo {
-  background: linear-gradient(145deg, #92ffc0, #20a85a 75%);
-  color: #07140c;
-  box-shadow: 0 8px 28px rgba(53, 223, 121, .23);
+  background: linear-gradient(145deg, #a2edb8, #31965a 75%);
+  color: #0a160e;
+  box-shadow: 0 8px 28px rgba(64, 183, 103, .2);
 }
 .topbar { background: rgba(10, 15, 12, .78); }
 .tabs { background: rgba(10, 15, 12, .68); }
 .tabs button, .btn.ghost { color: var(--muted); }
-.tabs button:hover, .btn:hover, tbody tr:hover { background: rgba(115, 245, 162, .09); }
+.tabs button:hover, .btn:hover, tbody tr:hover { background: rgba(112, 217, 148, .09); }
 .tabs button.active, .btn.primary {
-  background: linear-gradient(135deg, #9bffc2, #47d77d);
+  background: linear-gradient(135deg, #a2edb8, #59c780);
   border-color: transparent;
   color: #06120a;
 }
-.btn.primary:hover { background: #7cf5a7; }
+.btn.primary:hover { background: #85dca0; }
 .btn, .quick-admin, select.role-select, label.fld input, label.fld select,
 label.fld textarea, .period input {
   background-color: rgba(255, 255, 255, .055);
@@ -255,16 +255,16 @@ label.fld textarea, .period input {
 .card .v.green, .profit b { color: var(--ok); }
 .card .v.red { color: var(--bad); }
 .card .v.blue { color: var(--accent); }
-.b-new, .b-role { background: rgba(115, 245, 162, .13); color: var(--accent); }
+.b-new, .b-role { background: rgba(112, 217, 148, .13); color: var(--accent); }
 .b-work { background: rgba(248, 197, 107, .14); color: var(--warn); }
-.b-done { background: rgba(115, 245, 162, .13); color: var(--ok); }
+.b-done { background: rgba(112, 217, 148, .13); color: var(--ok); }
 .b-cancel { background: rgba(255, 119, 125, .14); color: var(--bad); }
 td { border-bottom-color: rgba(220, 255, 232, .08); }
 .money b, .dlg-head { color: var(--text); }
 .dlg-head, .panel-head, .dlg-foot { border-color: var(--border); }
 label.fld input:focus, label.fld select:focus, label.fld textarea:focus,
 .period input:focus {
-  outline: 2px solid rgba(115, 245, 162, .22);
+  outline: 2px solid rgba(112, 217, 148, .22);
   border-color: var(--accent);
 }
 select.role-select:disabled { background: rgba(255, 255, 255, .035); color: var(--muted); }

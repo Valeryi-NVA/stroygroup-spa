@@ -28,7 +28,8 @@ export function renderStaff() {
       { t: 'ФИО', f: function(row) { return '<b>' + esc(row.name) + '</b><div class="sub">' + esc(row.phone || '') + '</div>'; } },
       { t: 'Роль', f: function(row) { return esc(row.role); } },
       { t: 'Тип оплаты', f: function(row) { return esc({ day: 'Дневная ставка', piece: 'Сдельная', salary: 'Оклад', premium: 'Премия' }[row.payType] || row.payType); } },
-      { t: 'Ставка/день', f: function(row) { return row.payType === 'day' ? fmt(row.rate) : '—'; } },
+      { t: 'Ставка/день · цех', f: function(row) { return row.payType === 'day' ? fmt(row.workshopRate) : '—'; } },
+      { t: 'Ставка/день · монтаж', f: function(row) { return row.payType === 'day' ? fmt(row.installRate) : '—'; } },
       { t: 'Оклад', f: function(row) { return row.payType === 'salary' ? fmt(row.salary) : '—'; } },
       { t: '', f: function(row) { return actions(row.id, 'emp-edit', 'emp-del'); } }
     ], DB.employees);

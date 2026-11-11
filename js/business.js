@@ -85,8 +85,11 @@ export function calcSalary(from, to) {
     var workIndex;
     var objectIndex;
     if (employee.payType === 'day') {
-      row.base = row.days * num(employee.rate);
-      row.notes.push(row.days + ' дн. × ' + num(employee.rate));
+      var dailyRate = employee.role === 'Монтажник'
+        ? num(employee.installRate === undefined ? employee.rate : employee.installRate)
+        : num(employee.workshopRate === undefined ? employee.rate : employee.workshopRate);
+      row.base = row.days * dailyRate;
+      row.notes.push(row.days + ' дн. × ' + dailyRate);
     } else if (employee.payType === 'salary') {
       row.base = num(employee.salary);
       row.notes.push('Оклад');

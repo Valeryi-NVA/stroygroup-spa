@@ -51,13 +51,14 @@ function persist(callback) {
 /** Create or update an employee and their pay settings. */
 export function formEmployee(employee) {
   var isNew = !employee;
-  var record = employee || { id: uid(), name: '', role: 'Цех', payType: 'day', rate: 0, salary: 0, premiumPct: 0, phone: '' };
+  var record = employee || { id: uid(), name: '', role: 'Цех', payType: 'day', workshopRate: 0, installRate: 0, salary: 0, premiumPct: 0, phone: '' };
   openForm(isNew ? 'Новый сотрудник' : 'Сотрудник', [
     { key: 'name', label: 'ФИО' },
     { key: 'phone', label: 'Телефон', type: 'tel' },
     { key: 'role', label: 'Роль', type: 'select', options: EMPLOYEE_ROLES.map(function(value) { return { v: value, t: value }; }) },
     { key: 'payType', label: 'Тип оплаты', type: 'select', options: PAY_TYPES },
-    { key: 'rate', label: 'Ставка в день, ₽', type: 'number', step: '0.01' },
+    { key: 'workshopRate', label: 'Ставка в день — цех, ₽', type: 'number', step: '0.01' },
+    { key: 'installRate', label: 'Ставка в день — монтаж, ₽', type: 'number', step: '0.01' },
     { key: 'salary', label: 'Оклад в месяц, ₽', type: 'number', step: '0.01' },
     { key: 'premiumPct', label: 'Премия, %', type: 'number', step: '0.1' }
   ], record, function(data) {
