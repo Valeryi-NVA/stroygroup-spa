@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>СтройГрупп — управление фирмой</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="logo">С</div>
+        <div>
+          <div class="brand-title">СтройГрупп</div>
+          <div class="brand-sub">навесы · беседки · дома</div>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" id="tabLogin" class="active">Вход</button>
+        <button type="button" id="tabRegister">Регистрация</button>
+      </div>
+
+      <form id="loginForm" class="auth-form" autocomplete="off" novalidate>
+        <label class="fld">Телефон
+          <input type="tel" id="loginPhone" placeholder="+7 900 000-00-00" value="+7 900 000-00-00">
+        </label>
+        <label class="fld">Пароль
+          <input type="password" id="loginPass" value="admin">
+        </label>
+        <div id="loginError" class="auth-error" role="alert"></div>
+        <button type="submit" class="btn primary">Войти</button>
+        <button type="button" class="quick-admin" id="quickAdminBtn">Быстрый вход как администратор</button>
+        <div class="auth-hint">
+          Администратор: <b>+7 900 000-00-00</b> / <b>admin</b>
+        </div>
+      </form>
+
+      <form id="registerForm" class="auth-form" autocomplete="off" hidden novalidate>
+        <label class="fld">Телефон
+          <input type="tel" id="regPhone" placeholder="+7 900 123-45-67">
+        </label>
+        <label class="fld">ФИО
+          <input type="text" id="regName" placeholder="Иванов Иван Иванович">
+        </label>
+        <label class="fld">Пароль (мин. 4 символа)
+          <input type="password" id="regPass" placeholder="••••">
+        </label>
+        <label class="fld">Повтор пароля
+          <input type="password" id="regPass2" placeholder="••••">
+        </label>
+        <div id="regError" class="auth-error" role="alert"></div>
+        <button type="submit" class="btn primary">Зарегистрироваться</button>
+        <div class="auth-hint">После регистрации роль назначает администратор в разделе «Настройки».</div>
+      </form>
+    </div>
+  </div>
+
+  <div id="mainApp" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">С</div>
+        <div>
+          <div class="brand-title">СтройГрупп</div>
+          <div class="brand-sub">навесы · беседки · мангальные зоны · дома</div>
+        </div>
+      </div>
+      <div class="user-chip">
+        <div>
+          <div class="user-name" id="userName">—</div>
+          <div class="user-role" id="userRole">—</div>
+        </div>
+        <button class="btn ghost" type="button" id="logoutBtn" title="Выйти">Выйти</button>
+      </div>
+    </header>
+    <nav id="nav" class="tabs" aria-label="Разделы приложения"></nav>
+    <main id="app"></main>
+  </div>
+
+  <dialog id="modal" aria-labelledby="dlgTitle">
+    <div class="dlg-head" id="dlgTitle"></div>
+    <div class="dlg-body" id="dlgBody"></div>
+    <div class="dlg-foot">
+      <button class="btn ghost" type="button" id="dlgCancel">Отмена</button>
+      <button class="btn primary" type="button" id="dlgSave">Сохранить</button>
+    </div>
+  </dialog>
+</body>
+</html>
