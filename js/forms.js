@@ -1,7 +1,7 @@
-import { DB, replaceDB, save } from './storage.js';
+import { DB, apiRequest, replaceDB, save } from './storage.js';
 import { findById } from './business.js';
 import { today, uid } from './utils.js';
-import { openForm, setFormError } from './ui.js';
+import { openForm, setFormError, showMessage } from './ui.js';
 import { renderApp } from './router.js';
 
 var EMPLOYEE_ROLES = ['Цех', 'Монтажник', 'Менеджер', 'Бухгалтер', 'Начальник цеха', 'Проектировщик'];
@@ -228,6 +228,36 @@ export function formPayment(payment, objectId) {
     return persist(function() {
       for (var key in data) if (Object.prototype.hasOwnProperty.call(data, key)) record[key] = data[key];
       if (isNew) DB.payments.push(record);
+    });
+  });
+}
+
+/** Create a team account inside the currently authenticated company workspace. */
+export function formUser() {
+  var roles = [
+    { v: 'manager', t: 'Менеджер' },
+    { v: 'foreman', t: 'Начальник цеха' },
+    { v: 'accountant', t: 'Бухгалтер' },
+    { v: 'designer', t: 'Проектировщик' },
+    { v: 'installer', t: 'Монтажник' },
+    { v: 'worker', t: 'Сотрудник цеха' }
+  ];
+  openForm('Добавить пользователя', [
+    { key: 'name', label: 'ФИО' },
+    { key: 'phone', label: 'Телефон', type: 'tel' },
+    { key: 'role', label: 'Роль', type: 'select', options: roles },
+    { key: 'password', label: 'Временный пароль (не менее 8 символов)', type: 'password' }
+  ], { role: 'worker' }, function(data) {
+    if (data.name.replace(/^\s+|\s+$/g, '').length < 2) { setFormError('Укажите ФИО.'); return false; }
+    if (data.password.length < 8) { setFormError('Пароль должен содержать не менее 8 символов.'); return false; }
+    apiRequest('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }).then(function(result) {
+      DB.users.push(result.user);
+      renderApp();
+    }).catch(function(error) {
+      showMessage(error.message);
     });
   });
 }

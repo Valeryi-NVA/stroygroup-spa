@@ -70,23 +70,3 @@ export function formatPhone(value) {
   if (digits.length !== 10) return value || '—';
   return '+7 ' + digits.slice(0, 3) + ' ' + digits.slice(3, 6) + '-' + digits.slice(6, 8) + '-' + digits.slice(8);
 }
-
-/** Hash a demo password with FNV-1a; this is not suitable for production. */
-export function hashPassword(password) {
-  var hash = 0x811c9dc5;
-  var value = String(password);
-  var index;
-  var low;
-  var high;
-  var lowProduct;
-  var highProduct;
-  for (index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    low = hash & 0xffff;
-    high = hash >>> 16;
-    lowProduct = low * 403;
-    highProduct = high * 403 + low * 256 + Math.floor(lowProduct / 65536);
-    hash = ((highProduct & 0xffff) << 16) | (lowProduct & 0xffff);
-  }
-  return (hash >>> 0).toString(16);
-}

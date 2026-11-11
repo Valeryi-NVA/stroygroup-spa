@@ -1,0 +1,17 @@
+{
+  "name": "nva-crm",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "db:init": "node scripts/init-db.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -189,7 +189,7 @@ export function renderSalary() {
 /** Render user-role settings and reset controls. */
 export function renderSettings() {
   var roles = ['admin', 'manager', 'foreman', 'accountant', 'designer', 'installer', 'worker'];
-  return '<div class="head"><h2>Настройки</h2><button class="btn danger" data-action="reset">Сбросить демо-данные</button></div>' +
+  return '<div class="head"><h2>Настройки</h2><div class="row-actions"><button class="btn" data-action="user-add">+ Добавить пользователя</button><button class="btn danger" data-action="reset">Очистить данные компании</button></div></div>' +
     table([
       { t: 'Пользователь', f: function(row) { return '<b>' + esc(row.name) + '</b><div class="sub">' + esc(row.phone) + '</div>'; } },
       { t: 'Роль', f: function(row) {

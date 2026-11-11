@@ -1,6 +1,6 @@
-import { DB, save } from './storage.js';
+import { DB, apiRequest, clearAuthToken, getAuthToken, loadServerState, save, setAuthToken } from './storage.js';
 import { ROLES_DEF, canAccess } from './roles.js';
-import { $, formatPhone, hashPassword, normalizePhone } from './utils.js';
+import { $, formatPhone, normalizePhone } from './utils.js';
 import { renderApp } from './router.js';
 
 /** Return the logged-in user or null. */
@@ -10,9 +10,15 @@ export function getCurrentUser() {
   for (index = 0; index < DB.users.length; index += 1) {
     if (DB.users[index] && DB.users[index].id === DB.session) return DB.users[index];
   }
-  DB.session = null;
-  save();
   return null;
+}
+
+/** Apply the server-backed appearance preference. */
+export function updateTheme() {
+  var theme = DB.settings.theme === 'light' ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', theme);
+  $('#themeToggle').textContent = theme === 'dark' ? 'Светлая тема' : 'Тёмная тема';
+  $('#themeToggle').setAttribute('aria-label', theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему');
 }
 
 /** Show the authentication screen and hide the application. */
@@ -37,6 +43,7 @@ export function updateHeader() {
 export function showMainApp() {
   $('#authScreen').hidden = true;
   $('#mainApp').hidden = false;
+  updateTheme();
   updateHeader();
   renderApp();
 }
@@ -51,79 +58,96 @@ function switchAuthTab(isLogin) {
   $('#regError').textContent = '';
 }
 
-/** Authenticate the user against the local demo account list. */
+function finishAuthentication(result, errorElement) {
+  if (!setAuthToken(result.token)) {
+    errorElement.textContent = 'Браузер заблокировал сессионное хранилище. Разрешите его и повторите вход.';
+    return Promise.resolve(false);
+  }
+  return loadServerState().then(function() {
+    showMainApp();
+    return true;
+  }).catch(function(error) {
+    clearAuthToken();
+    errorElement.textContent = error.message;
+    return false;
+  });
+}
+
+/** Authenticate the user with the cloud service. */
 function login(event) {
   var phone = normalizePhone($('#loginPhone').value);
   var password = $('#loginPass').value;
   var error = $('#loginError');
-  var index;
   event.preventDefault();
   error.textContent = '';
   if (!phone) { error.textContent = 'Введите корректный номер телефона'; return; }
   if (!password) { error.textContent = 'Введите пароль'; return; }
-  for (index = 0; index < DB.users.length; index += 1) {
-    if (DB.users[index].phone === phone && DB.users[index].passHash === hashPassword(password)) {
-      DB.session = DB.users[index].id;
-      if (!save()) return;
-      showMainApp();
-      return;
-    }
-  }
-  error.textContent = 'Неверный телефон или пароль';
+  apiRequest('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ phone: phone, password: password })
+  }).then(function(result) {
+    return finishAuthentication(result, error);
+  }).catch(function(requestError) {
+    error.textContent = requestError.message;
+  });
 }
 
-/** Register a new local user with the default worker role. */
+/** Register a new company workspace and its first administrator. */
 function register(event) {
   var phone = normalizePhone($('#regPhone').value);
   var name = $('#regName').value.replace(/^\s+|\s+$/g, '');
+  var tenantName = $('#regTenant').value.replace(/^\s+|\s+$/g, '');
   var password = $('#regPass').value;
   var repeat = $('#regPass2').value;
   var error = $('#regError');
-  var index;
   event.preventDefault();
   error.textContent = '';
   if (!phone) { error.textContent = 'Введите корректный номер телефона'; return; }
   if (name.length < 2) { error.textContent = 'Укажите ФИО'; return; }
-  if (password.length < 4) { error.textContent = 'Пароль должен содержать минимум 4 символа'; return; }
+  if (password.length < 8) { error.textContent = 'Пароль должен содержать не менее 8 символов'; return; }
   if (password !== repeat) { error.textContent = 'Пароли не совпадают'; return; }
-  for (index = 0; index < DB.users.length; index += 1) {
-    if (DB.users[index].phone === phone) { error.textContent = 'Этот телефон уже зарегистрирован'; return; }
-  }
-  DB.users.push({ id: 'u-' + Math.random().toString(36).slice(2, 10), phone: phone, name: name, passHash: hashPassword(password), role: 'worker', createdAt: new Date().toISOString().slice(0, 10) });
-  DB.session = DB.users[DB.users.length - 1].id;
-  if (!save()) return;
-  showMainApp();
+  apiRequest('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ phone: phone, name: name, tenantName: tenantName, password: password })
+  }).then(function(result) {
+    return finishAuthentication(result, error);
+  }).catch(function(requestError) {
+    error.textContent = requestError.message;
+  });
 }
 
-/** Bind authentication forms and restore the local session. */
+/** Bind sign-in, registration, theme, and server-session handlers. */
 export function initAuth() {
-  try {
-    $('#tabLogin').addEventListener('click', function() { switchAuthTab(true); });
-    $('#tabRegister').addEventListener('click', function() { switchAuthTab(false); });
-    $('#loginForm').addEventListener('submit', login);
-    $('#registerForm').addEventListener('submit', register);
-    $('#quickAdminBtn').addEventListener('click', function() {
-      var index;
-      for (index = 0; index < DB.users.length; index += 1) {
-        if (DB.users[index].role === 'admin') {
-          DB.session = DB.users[index].id;
-          if (save()) showMainApp();
-          return;
-        }
-      }
-      $('#loginError').textContent = 'Демо-администратор не найден. Сбросьте данные.';
-    });
-    $('#logoutBtn').addEventListener('click', function() {
-      if (!window.confirm('Выйти из системы?')) return;
+  $('#tabLogin').addEventListener('click', function() { switchAuthTab(true); });
+  $('#tabRegister').addEventListener('click', function() { switchAuthTab(false); });
+  $('#loginForm').addEventListener('submit', login);
+  $('#registerForm').addEventListener('submit', register);
+  $('#themeToggle').addEventListener('click', function() {
+    DB.settings.theme = DB.settings.theme === 'light' ? 'dark' : 'light';
+    updateTheme();
+    if (!save()) return;
+  });
+  $('#logoutBtn').addEventListener('click', function() {
+    if (!window.confirm('Выйти из системы?')) return;
+    apiRequest('/api/auth/logout', { method: 'POST' }).catch(function(error) {
+      console.error('Ошибка завершения облачной сессии:', error);
+    }).then(function() {
+      clearAuthToken();
       DB.session = null;
-      if (save()) showAuthScreen();
+      showAuthScreen();
     });
-    if (getCurrentUser()) showMainApp();
-    else showAuthScreen();
-  } catch (error) {
-    console.error('Ошибка инициализации авторизации:', error);
-    window.alert('Не удалось запустить приложение: ' + error.message);
+  });
+  if (!getAuthToken()) {
+    showAuthScreen();
+    return;
   }
+  loadServerState().then(function() {
+    showMainApp();
+  }).catch(function(error) {
+    clearAuthToken();
+    showAuthScreen();
+    if (error.status !== 401) $('#loginError').textContent = 'Сервер временно недоступен. Проверьте подключение и повторите попытку.';
+  });
 }
 
 export { canAccess };

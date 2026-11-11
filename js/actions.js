@@ -1,8 +1,8 @@
 import { DB, replaceDB, save, seed } from './storage.js';
 import { findById } from './business.js';
-import { getCurrentUser, showAuthScreen } from './auth.js';
+import { getCurrentUser } from './auth.js';
 import { renderApp } from './router.js';
-import { formCost, formEmployee, formObject, formOutput, formPayment, formTimesheet, formTrip, formVehicle, formWork } from './forms.js';
+import { formCost, formEmployee, formObject, formOutput, formPayment, formTimesheet, formTrip, formUser, formVehicle, formWork } from './forms.js';
 import { showMessage } from './ui.js';
 
 function removeRecord(collection, id, message) {
@@ -18,12 +18,15 @@ function removeRecord(collection, id, message) {
 /** Handle CRUD operations for the local demo application. */
 export var ACTIONS = {
   reset: function() {
-    var snapshot;
-    if (!window.confirm('Сбросить все данные к демо-набору?')) return;
-    snapshot = JSON.stringify(DB);
+    var users;
+    var session;
+    if (!window.confirm('Удалить все данные рабочей области компании? Это действие нельзя отменить.')) return;
+    users = DB.users.slice();
+    session = DB.session;
     replaceDB(seed());
-    if (save()) showAuthScreen();
-    else replaceDB(JSON.parse(snapshot));
+    DB.users = users;
+    DB.session = session;
+    if (save()) renderApp();
   },
   'obj-add': function() { formObject(null); },
   'obj-edit': function(data) { formObject(findById(DB.objects, data.id)); },
@@ -61,6 +64,7 @@ export var ACTIONS = {
     if (target.role === 'admin' && adminCount <= 1) { showMessage('Нельзя удалить последнего администратора.'); return; }
     removeRecord(DB.users, target.id, 'Удалить пользователя «' + target.name + '»?');
   },
+  'user-add': function() { formUser(); },
   'user-role': function(data) {
     var me = getCurrentUser();
     var target = findById(DB.users, data.id);

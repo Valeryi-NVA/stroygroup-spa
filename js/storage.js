@@ -1,70 +1,29 @@
-import { hashPassword, today, uid, ymd } from './utils.js';
+var TOKEN_KEY = 'nva_crm_session';
+var saveQueue = Promise.resolve();
+var version = 0;
+var saveGeneration = 0;
+var persistenceErrorHandler = null;
 
-export var LS_KEY = 'stroy_model_v2';
-export var DB = loadDB();
+export var DB = emptyState();
 
-/** Read a value from localStorage without allowing browser storage errors to escape. */
-export function safeGetItem(key) {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) return null;
-    return window.localStorage.getItem(key);
-  } catch (error) {
-    console.error('Ошибка чтения localStorage:', error);
-    return null;
-  }
-}
-
-/** Write a value to localStorage and report success or failure. */
-export function safeSetItem(key, value) {
-  try {
-    if (typeof window === 'undefined' || !window.localStorage) return false;
-    window.localStorage.setItem(key, value);
-    return true;
-  } catch (error) {
-    console.error('Ошибка сохранения localStorage:', error);
-    window.alert('Не удалось сохранить данные: ' + error.message);
-    return false;
-  }
-}
-
-/** Build the first-run demonstration dataset. */
-export function seed() {
-  var date = today();
-  var monthStart = ymd(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+function emptyState() {
   return {
-    employees: [
-      { id: 'e1', name: 'Иванов Иван Иванович', role: 'Начальник цеха', payType: 'salary', rate: 0, salary: 80000, premiumPct: 0, phone: '+79000000001' },
-      { id: 'e2', name: 'Петров Пётр Петрович', role: 'Цех', payType: 'day', rate: 2500, salary: 0, premiumPct: 0, phone: '+79000000002' },
-      { id: 'e3', name: 'Сидоров Сергей Сергеевич', role: 'Цех', payType: 'piece', rate: 0, salary: 0, premiumPct: 0, phone: '+79000000003' },
-      { id: 'e4', name: 'Кузнецов Алексей Алексеевич', role: 'Монтажник', payType: 'day', rate: 3000, salary: 0, premiumPct: 0, phone: '+79000000004' },
-      { id: 'e5', name: 'Морозов Дмитрий Дмитриевич', role: 'Менеджер', payType: 'salary', rate: 0, salary: 60000, premiumPct: 0, phone: '+79000000005' }
-    ],
-    vehicles: [{ id: 'v1', plate: 'А123ВС', model: 'Газель NEXT', driverId: 'e4' }],
-    works: [{ id: 'w1', name: 'Сборка каркаса', rate: 15000 }],
-    objects: [
-      { id: 'o1', name: 'Навес на даче', address: 'Московская область', phone: '', comment: 'Демонстрационный объект', status: 'В работе', amount: 0, managerId: 'e5', designerId: '', closedAt: '' },
-      { id: 'o2', name: 'Беседка', address: 'Тверь', phone: '', comment: '', status: 'Новый', amount: 0, managerId: '', designerId: '', closedAt: '' }
-    ],
-    timesheet: [{ id: uid(), empId: 'e2', date: date, days: 1, objectId: 'o1', note: 'Демонстрационная отметка' }],
-    trips: [{ id: uid(), date: date, objectId: 'o1', seniorId: 'e4', crew: ['e4'], vehicleId: 'v1', driverId: 'e4', fuel: 1200, materials: 0, other: 0 }],
-    output: [{ id: uid(), empId: 'e3', workId: 'w1', qty: 1, date: date, objectId: 'o1' }],
-    costs: [{ id: uid(), objectId: 'o1', date: date, type: 'Материалы', amount: 25000, note: 'Демо: крепёж и пиломатериалы' }],
+    employees: [],
+    vehicles: [],
+    works: [],
+    objects: [],
+    timesheet: [],
+    trips: [],
+    output: [],
+    costs: [],
     payments: [],
-    users: [
-      { id: 'u-admin', phone: '+79000000000', name: 'Администратор', passHash: hashPassword('admin'), role: 'admin', createdAt: date },
-      { id: 'u-manager', phone: '+79001111111', name: 'Смирнов Владимир Владимирович', passHash: hashPassword('1234'), role: 'manager', createdAt: date },
-      { id: 'u-foreman', phone: '+79002222222', name: 'Иванов Иван Иванович', passHash: hashPassword('1234'), role: 'foreman', createdAt: date },
-      { id: 'u-accountant', phone: '+79003333333', name: 'Орлова Елена Евгеньевна', passHash: hashPassword('1234'), role: 'accountant', createdAt: date },
-      { id: 'u-designer', phone: '+79004444444', name: 'Волков Николай Николаевич', passHash: hashPassword('1234'), role: 'designer', createdAt: date },
-      { id: 'u-installer', phone: '+79005555555', name: 'Кузнецов Алексей Алексеевич', passHash: hashPassword('1234'), role: 'installer', createdAt: date },
-      { id: 'u-worker', phone: '+79006666666', name: 'Петров Пётр Петрович', passHash: hashPassword('1234'), role: 'worker', createdAt: date }
-    ],
-    settings: { from: monthStart, to: date },
+    users: [],
+    settings: { from: '', to: '', theme: 'dark' },
     session: null
   };
 }
 
-/** Restore required arrays and settings and ensure a demo administrator exists. */
+/** Repair missing server state fields without creating demo users or browser storage. */
 export function migrate(db) {
   var arrays = ['users', 'employees', 'objects', 'timesheet', 'trips', 'vehicles', 'works', 'output', 'costs', 'payments'];
   var index;
@@ -72,46 +31,76 @@ export function migrate(db) {
   for (index = 0; index < arrays.length; index += 1) {
     if (Object.prototype.toString.call(db[arrays[index]]) !== '[object Array]') db[arrays[index]] = [];
   }
-  if (!db.settings || typeof db.settings !== 'object') {
-    db.settings = { from: ymd(new Date(new Date().getFullYear(), new Date().getMonth(), 1)), to: today() };
-  }
-  if (typeof db.settings.from !== 'string') db.settings.from = ymd(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  if (typeof db.settings.to !== 'string') db.settings.to = today();
-  if (db.session !== null && typeof db.session !== 'string') db.session = null;
-  for (index = 0; index < db.users.length; index += 1) {
-    if (db.users[index] && db.users[index].role === 'admin') return db;
-  }
-  db.users.push({ id: 'u-admin', phone: '+79000000000', name: 'Администратор', passHash: hashPassword('admin'), role: 'admin', createdAt: today() });
+  if (!db.settings || typeof db.settings !== 'object') db.settings = {};
+  if (typeof db.settings.from !== 'string') db.settings.from = '';
+  if (typeof db.settings.to !== 'string') db.settings.to = '';
+  if (db.settings.theme !== 'light' && db.settings.theme !== 'dark') db.settings.theme = 'dark';
+  db.session = typeof db.session === 'string' ? db.session : null;
   return db;
 }
 
-/** Load the saved model, recover from malformed JSON, and seed as needed. */
-export function loadDB() {
-  var raw = safeGetItem(LS_KEY);
-  var parsed;
-  if (raw) {
-    try {
-      parsed = JSON.parse(raw);
-      return migrate(parsed);
-    } catch (error) {
-      console.error('Повреждённые данные localStorage, создаю демо-набор:', error);
-    }
-  }
-  return migrate(seed());
+/** Provide an empty shape for callers that previously created a local demo seed. */
+export function seed() {
+  return emptyState();
 }
 
-/** Persist the current application model through the guarded storage wrapper. */
-export function save() {
+/** Read the short-lived authentication token from tab-scoped session storage. */
+export function getAuthToken() {
   try {
-    return safeSetItem(LS_KEY, JSON.stringify(DB));
+    return typeof window === 'undefined' ? '' : window.sessionStorage.getItem(TOKEN_KEY) || '';
   } catch (error) {
-    console.error('Ошибка подготовки данных к сохранению:', error);
-    window.alert('Не удалось сохранить данные: ' + error.message);
+    console.error('Ошибка чтения сессии:', error);
+    return '';
+  }
+}
+
+/** Save an authentication token for this browser tab only. */
+export function setAuthToken(token) {
+  try {
+    if (typeof window === 'undefined') return false;
+    window.sessionStorage.setItem(TOKEN_KEY, token);
+    return true;
+  } catch (error) {
+    console.error('Ошибка сохранения сессии:', error);
     return false;
   }
 }
 
-/** Replace the in-memory model with migrated data. */
+/** Remove the current browser-tab authentication token. */
+export function clearAuthToken() {
+  try {
+    if (typeof window !== 'undefined') window.sessionStorage.removeItem(TOKEN_KEY);
+  } catch (error) {
+    console.error('Ошибка завершения сессии:', error);
+  }
+}
+
+/** Call a same-origin API endpoint and expose server errors to the caller. */
+export function apiRequest(path, options) {
+  var requestOptions = options || {};
+  var headers = requestOptions.headers || {};
+  var token = getAuthToken();
+  headers['Content-Type'] = 'application/json';
+  if (token) headers.Authorization = 'Bearer ' + token;
+  requestOptions.headers = headers;
+  return window.fetch(path, requestOptions).then(function(response) {
+    return response.text().then(function(text) {
+      var payload = {};
+      if (text) {
+        try { payload = JSON.parse(text); }
+        catch (error) { throw new Error('Сервер вернул некорректный ответ.'); }
+      }
+      if (!response.ok) {
+        var serverError = new Error(payload.error || 'Ошибка сервера (' + response.status + ').');
+        serverError.status = response.status;
+        throw serverError;
+      }
+      return payload;
+    });
+  });
+}
+
+/** Replace the in-memory model with a server-provided state. */
 export function replaceDB(next) {
   var restored = migrate(next);
   var key;
@@ -164,4 +153,67 @@ export function replaceDB(next) {
       }
     } else DB[key] = incoming;
   }
+  saveGeneration += 1;
+}
+
+/** Load the authenticated workspace and its optimistic concurrency version. */
+export function loadServerState() {
+  return apiRequest('/api/state', { method: 'GET' }).then(function(result) {
+    version = result.version;
+    replaceDB(result.db);
+    DB.session = result.user.id;
+    return result;
+  });
+}
+
+/** Configure visible error handling for asynchronous server persistence. */
+export function onPersistenceError(handler) {
+  persistenceErrorHandler = handler;
+}
+
+/** Save current records to PostgreSQL; no application data is written to browser storage. */
+export function save() {
+  var snapshot;
+  var generation = saveGeneration;
+  if (!getAuthToken()) return false;
+  try {
+    snapshot = JSON.parse(JSON.stringify(DB));
+  } catch (error) {
+    console.error('Ошибка подготовки состояния:', error);
+    if (persistenceErrorHandler) persistenceErrorHandler('Не удалось подготовить данные к отправке.');
+    return false;
+  }
+  saveQueue = saveQueue.then(function() {
+    if (generation !== saveGeneration) return null;
+    return apiRequest('/api/state', {
+      method: 'PUT',
+      body: JSON.stringify({ version: version, db: snapshot })
+    }).then(function(result) {
+      version = result.version;
+      return result;
+    }).catch(function(error) {
+      if (error.status === 401) {
+        clearAuthToken();
+        if (persistenceErrorHandler) persistenceErrorHandler(error.message, error);
+        return null;
+      }
+      if (error.status === 409 || error.status >= 400) {
+        saveGeneration += 1;
+        return loadServerState().then(function() {
+          if (persistenceErrorHandler) persistenceErrorHandler(error.message, error);
+          return null;
+        }).catch(function(refreshError) {
+          if (persistenceErrorHandler) persistenceErrorHandler(refreshError.message || error.message, refreshError);
+          return null;
+        });
+      }
+      if (persistenceErrorHandler) persistenceErrorHandler(error.message, error);
+      return null;
+    });
+  }).catch(function(error) {
+    console.error('Ошибка синхронизации с сервером:', error);
+    if (persistenceErrorHandler) persistenceErrorHandler(error.message || 'Ошибка соединения с сервером.', error);
+    return null;
+  });
+  return true;
 }

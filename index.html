@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>СтройГрупп — управление фирмой</title>
+  <title>NVA-CRM — управление компанией</title>
   <link rel="stylesheet" href="css/styles.css">
   <script type="module" src="js/main.js"></script>
 </head>
@@ -11,10 +11,10 @@
   <div id="authScreen" class="auth-screen">
     <div class="auth-card">
       <div class="auth-brand">
-        <div class="logo">С</div>
+        <div class="logo">N</div>
         <div>
-          <div class="brand-title">СтройГрупп</div>
-          <div class="brand-sub">навесы · беседки · дома</div>
+          <div class="brand-title">NVA-CRM</div>
+          <div class="brand-sub">управление компанией</div>
         </div>
       </div>
 
@@ -25,17 +25,14 @@
 
       <form id="loginForm" class="auth-form" autocomplete="off" novalidate>
         <label class="fld">Телефон
-          <input type="tel" id="loginPhone" placeholder="+7 900 000-00-00" value="+7 900 000-00-00">
+          <input type="tel" id="loginPhone" placeholder="+7 900 000-00-00" autocomplete="username">
         </label>
         <label class="fld">Пароль
-          <input type="password" id="loginPass" value="admin">
+          <input type="password" id="loginPass" autocomplete="current-password">
         </label>
         <div id="loginError" class="auth-error" role="alert"></div>
         <button type="submit" class="btn primary">Войти</button>
-        <button type="button" class="quick-admin" id="quickAdminBtn">Быстрый вход как администратор</button>
-        <div class="auth-hint">
-          Администратор: <b>+7 900 000-00-00</b> / <b>admin</b>
-        </div>
+        <div class="auth-hint">Войдите в рабочее пространство вашей компании.</div>
       </form>
 
       <form id="registerForm" class="auth-form" autocomplete="off" hidden novalidate>
@@ -45,15 +42,18 @@
         <label class="fld">ФИО
           <input type="text" id="regName" placeholder="Иванов Иван Иванович">
         </label>
-        <label class="fld">Пароль (мин. 4 символа)
-          <input type="password" id="regPass" placeholder="••••">
+        <label class="fld">Название компании
+          <input type="text" id="regTenant" placeholder="Например, NVA Строй">
+        </label>
+        <label class="fld">Пароль (не менее 8 символов)
+          <input type="password" id="regPass" placeholder="Не менее 8 символов" autocomplete="new-password">
         </label>
         <label class="fld">Повтор пароля
-          <input type="password" id="regPass2" placeholder="••••">
+          <input type="password" id="regPass2" placeholder="Повторите пароль" autocomplete="new-password">
         </label>
         <div id="regError" class="auth-error" role="alert"></div>
         <button type="submit" class="btn primary">Зарегистрироваться</button>
-        <div class="auth-hint">После регистрации роль назначает администратор в разделе «Настройки».</div>
+        <div class="auth-hint">Регистрация создаст защищённое рабочее пространство компании. Пароль хранится только на сервере в защищённом виде.</div>
       </form>
     </div>
   </div>
@@ -61,10 +61,10 @@
   <div id="mainApp" hidden>
     <header class="topbar">
       <div class="brand">
-        <div class="logo">С</div>
+        <div class="logo">N</div>
         <div>
-          <div class="brand-title">СтройГрупп</div>
-          <div class="brand-sub">навесы · беседки · мангальные зоны · дома</div>
+          <div class="brand-title">NVA-CRM</div>
+          <div class="brand-sub">управление компанией</div>
         </div>
       </div>
       <div class="user-chip">
@@ -72,6 +72,7 @@
           <div class="user-name" id="userName">—</div>
           <div class="user-role" id="userRole">—</div>
         </div>
+        <button class="btn ghost" type="button" id="themeToggle" aria-label="Переключить тему">Светлая тема</button>
         <button class="btn ghost" type="button" id="logoutBtn" title="Выйти">Выйти</button>
       </div>
     </header>
