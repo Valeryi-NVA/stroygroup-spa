@@ -36,9 +36,11 @@ npm start
 
 ## Публикация на Render
 
-В репозитории есть `render.yaml` с Node.js web service и PostgreSQL. В Render
-выберите **New → Blueprint**, подключите репозиторий
-`Valeryi-NVA/stroygroup-spa`, затем примените blueprint. Он задаёт `AUTH_SECRET`
+В репозитории есть `render.yaml` с Node.js web service. В Render выберите
+**New → Blueprint**, подключите репозиторий `Valeryi-NVA/stroygroup-spa` и
+примените blueprint. Укажите `DATABASE_URL` существующей PostgreSQL-базы (в
+текущем Render workspace уже есть бесплатная БД `object-uchet-db`) либо
+настройте отдельную базу по необходимости. Blueprint задаёт `AUTH_SECRET`
 автоматически, выполняет миграцию таблиц и запускает приложение. URL сервиса
 появится в панели Render после успешного деплоя.
 
