@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NVA-CRM — управление компанией</title>
-  <link rel="stylesheet" href="css/styles.css?v=mobile-20261111">
+  <link rel="stylesheet" href="css/styles.css?v=mobile-drawer-20261111">
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
@@ -60,6 +60,9 @@
 
   <div id="mainApp" hidden>
     <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Открыть меню" aria-controls="nav" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
       <div class="brand">
         <div class="logo">N</div>
         <div>
@@ -77,6 +80,7 @@
       </div>
     </header>
     <nav id="nav" class="tabs" aria-label="Разделы приложения"></nav>
+    <button id="navBackdrop" class="nav-backdrop" type="button" aria-label="Закрыть меню" hidden></button>
     <main id="app"></main>
   </div>
 
