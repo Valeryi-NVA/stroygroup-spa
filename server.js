@@ -351,6 +351,19 @@ async function recordAttendance(user, input, response) {
   }
 }
 
+async function autoCompleteTrips() {
+  const result = await pool.query('SELECT tenant_id, version, data FROM crm_state');
+  for (const row of result.rows) {
+    const data = structuredClone(row.data);
+    for (const key of arrayKeys) if (!Array.isArray(data[key])) data[key] = [];
+    if (!completeExpiredTrips(data)) continue;
+    await pool.query(
+      'UPDATE crm_state SET data = $1, version = version + 1, updated_at = NOW() WHERE tenant_id = $2 AND version = $3',
+      [JSON.stringify(data), row.tenant_id, row.version]
+    );
+  }
+}
+
 async function audit(client, user, action, entity, entityId) {
   await client.query(
     'INSERT INTO crm_audit_logs (tenant_id, user_id, action, entity, entity_id) VALUES ($1, $2, $3, $4, $5)',
