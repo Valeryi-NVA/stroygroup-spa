@@ -40,12 +40,14 @@ function vehicleOptions(withEmpty) {
 function persist(callback) {
   var snapshot = JSON.stringify(DB);
   callback();
-  if (!save()) {
-    replaceDB(JSON.parse(snapshot));
-    return false;
-  }
-  renderApp();
-  return true;
+  return save().then(function(saved) {
+    if (!saved) {
+      replaceDB(JSON.parse(snapshot));
+      return false;
+    }
+    renderApp();
+    return true;
+  });
 }
 
 /** Create or update an employee and their pay settings. */
@@ -118,7 +120,7 @@ export function formTimesheet(entry) {
 /** Create or update a field installation trip with recorded direct costs. */
 export function formTrip(trip) {
   var isNew = !trip;
-  var record = trip || { id: uid(), date: today(), objectId: '', seniorId: '', crew: [], vehicleId: '', driverId: '', fuel: 0, materials: 0, other: 0 };
+  var record = trip || { id: uid(), date: today(), objectId: '', seniorId: '', crew: [], vehicleId: '', driverId: '', fuel: 0, materials: 0, other: 0, status: 'active', completedAt: '' };
   var installers = [];
   var index;
   for (index = 0; index < DB.employees.length; index += 1) {
@@ -139,6 +141,26 @@ export function formTrip(trip) {
     return persist(function() {
       for (var key in data) if (Object.prototype.hasOwnProperty.call(data, key)) record[key] = data[key];
       if (isNew) DB.trips.push(record);
+    });
+  });
+}
+
+/** Create a separately itemized expense attached to an installation trip. */
+export function formTripExpense(expense, tripId) {
+  var isNew = !expense;
+  var record = expense || { id: uid(), tripId: tripId || '', date: today(), type: 'Материалы', amount: 0, note: '' };
+  var categories = ['Материалы', 'Транспорт', 'Инструменты', 'Проживание', 'Прочее'];
+  openForm(isNew ? 'Расход по выезду' : 'Расход по выезду', [
+    { key: 'date', label: 'Дата', type: 'date', def: today() },
+    { key: 'type', label: 'Категория', type: 'select', options: categories.map(function(value) { return { v: value, t: value }; }) },
+    { key: 'amount', label: 'Сумма, ₽', type: 'number', step: '0.01' },
+    { key: 'note', label: 'Комментарий' }
+  ], record, function(data) {
+    if (!data.date || data.date > today() || data.amount < 0) { setFormError('Проверьте дату и сумму расхода.'); return false; }
+    return persist(function() {
+      for (var key in data) if (Object.prototype.hasOwnProperty.call(data, key)) record[key] = data[key];
+      record.tripId = tripId || record.tripId;
+      if (isNew) DB.tripExpenses.push(record);
     });
   });
 }
@@ -251,14 +273,16 @@ export function formUser() {
   ], { role: 'worker' }, function(data) {
     if (data.name.replace(/^\s+|\s+$/g, '').length < 2) { setFormError('Укажите ФИО.'); return false; }
     if (data.password.length < 8) { setFormError('Пароль должен содержать не менее 8 символов.'); return false; }
-    apiRequest('/api/users', {
+    return apiRequest('/api/users', {
       method: 'POST',
       body: JSON.stringify(data)
     }).then(function(result) {
       DB.users.push(result.user);
       renderApp();
+      return true;
     }).catch(function(error) {
-      showMessage(error.message);
+      setFormError(error.message);
+      return false;
     });
   });
 }

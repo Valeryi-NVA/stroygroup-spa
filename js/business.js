@@ -30,7 +30,11 @@ export function vehName(id) {
 
 /** Sum direct travel costs without adding payroll or per diem. */
 export function tripExpense(trip) {
-  return num(trip.fuel) + num(trip.materials) + num(trip.other);
+  var total = num(trip.fuel) + num(trip.materials) + num(trip.other);
+  for (var index = 0; index < DB.tripExpenses.length; index += 1) {
+    if (DB.tripExpenses[index].tripId === trip.id) total += num(DB.tripExpenses[index].amount);
+  }
+  return total;
 }
 
 /** Sum only actual direct expenses and recorded travel expenses for an object. */

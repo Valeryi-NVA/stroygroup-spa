@@ -8,6 +8,10 @@ function actions(id, editAction, deleteAction) {
     '<button class="btn xs danger" data-action="' + deleteAction + '" data-id="' + esc(id) + '" title="Удалить">✕</button></div>';
 }
 
+function tripExpenses(trip) {
+  return DB.tripExpenses.filter(function(expense) { return expense.tripId === trip.id; });
+}
+
 /** Render construction objects with expense-only totals. */
 export function renderObjects() {
   return '<div class="head"><h2>Объекты</h2><button class="btn primary" data-action="obj-add">+ Объект</button></div>' +
@@ -38,6 +42,8 @@ export function renderStaff() {
 /** Render attendance records with day counts and no hourly fields. */
 export function renderTimesheet() {
   var rows = DB.timesheet.slice().sort(function(left, right) { return String(right.date || '').localeCompare(String(left.date || '')); });
+  var attendanceRows = DB.attendance.slice().sort(function(left, right) { return String(right.at || '').localeCompare(String(left.at || '')); });
+  var attendanceLabels = { trip_start: 'Выход на выезд', workshop_start: 'Приход в цех', workshop_end: 'Уход из цеха' };
   return '<div class="head"><h2>Табель цеха</h2><button class="btn primary" data-action="ts-add">+ Отметка</button></div>' +
     table([
       { t: 'Дата', f: function(row) { return esc(row.date); } },
@@ -46,7 +52,13 @@ export function renderTimesheet() {
       { t: 'Объект', f: function(row) { return row.objectId ? esc(objName(row.objectId)) : '—'; } },
       { t: 'Комментарий', f: function(row) { return esc(row.note || ''); } },
       { t: '', f: function(row) { return actions(row.id, 'ts-edit', 'ts-del'); } }
-    ], rows);
+    ], rows) +
+    '<h3>QR-отметки</h3>' +
+    table([
+      { t: 'Дата и время', f: function(row) { return esc(row.at ? new Date(row.at).toLocaleString('ru-RU') : row.date); } },
+      { t: 'Сотрудник', f: function(row) { return '<b>' + esc(empName(row.empId)) + '</b>'; } },
+      { t: 'Событие', f: function(row) { return esc(attendanceLabels[row.event] || row.event); } }
+    ], attendanceRows, 'QR-отметок пока нет');
 }
 
 /** Render installation trips and their direct expense breakdown. */
@@ -63,7 +75,11 @@ export function renderTrips() {
       { t: 'Материалы', f: function(row) { return fmt(row.materials); } },
       { t: 'Прочее', f: function(row) { return fmt(row.other); } },
       { t: 'Расходы', f: function(row) { return '<b>' + fmt(tripExpense(row)) + '</b>'; } },
-      { t: '', f: function(row) { return actions(row.id, 'trip-edit', 'trip-del'); } }
+      { t: 'Состояние', f: function(row) { return row.status === 'completed' ? '<span class="badge b-done">Завершён</span>' : '<span class="badge b-work">Активен</span>'; } },
+      { t: 'Действия', f: function(row) {
+        return actions(row.id, 'trip-edit', 'trip-del') +
+          '<button class="btn xs" data-action="trip-exp-add" data-id="' + esc(row.id) + '">+ Расход</button>';
+      } }
     ], rows);
 }
 
@@ -111,6 +127,13 @@ function expenseRowsForObject(objectId) {
     if (Number(trip.fuel) > 0) result.push({ date: trip.date, type: 'Транспорт · выезд', amount: trip.fuel, note: '', id: trip.id + '-fuel', source: 'Выезд' });
     if (Number(trip.materials) > 0) result.push({ date: trip.date, type: 'Материалы · выезд', amount: trip.materials, note: '', id: trip.id + '-materials', source: 'Выезд' });
     if (Number(trip.other) > 0) result.push({ date: trip.date, type: 'Прочее · выезд', amount: trip.other, note: '', id: trip.id + '-other', source: 'Выезд' });
+  }
+  for (index = 0; index < DB.tripExpenses.length; index += 1) {
+    var tripExpense = DB.tripExpenses[index];
+    var tripForExpense = findById(DB.trips, tripExpense.tripId);
+    if (tripForExpense && tripForExpense.objectId === objectId) {
+      result.push({ date: tripExpense.date, type: tripExpense.type + ' · выезд', amount: tripExpense.amount, note: tripExpense.note, id: tripExpense.id, source: 'Выезд' });
+    }
   }
   return result;
 }
@@ -198,7 +221,7 @@ export function renderSettings() {
           var definition = { admin: 'Администратор', manager: 'Менеджер', foreman: 'Начальник цеха', accountant: 'Бухгалтер', designer: 'Проектировщик', installer: 'Монтажник', worker: 'Сотрудник цеха' };
           return '<option value="' + role + '"' + (row.role === role ? ' selected' : '') + '>' + definition[role] + '</option>';
         }).join('') + '</select>'; } },
-      { t: '', f: function(row) { return '<button class="btn xs danger" data-action="user-del" data-id="' + esc(row.id) + '">Удалить</button>'; } }
+      { t: '', f: function(row) { return '<button class="btn xs" data-action="user-qr" data-id="' + esc(row.id) + '">QR</button> <button class="btn xs danger" data-action="user-del" data-id="' + esc(row.id) + '">Удалить</button>'; } }
     ], DB.users) +
     '<h3>Доступ по ролям</h3>' +
     table([

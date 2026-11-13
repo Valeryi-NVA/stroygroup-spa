@@ -1,7 +1,6 @@
 var TOKEN_KEY = 'nva_crm_session';
 var saveQueue = Promise.resolve();
 var version = 0;
-var saveGeneration = 0;
 var persistenceErrorHandler = null;
 
 export var DB = emptyState();
@@ -17,6 +16,8 @@ function emptyState() {
     output: [],
     costs: [],
     payments: [],
+    tripExpenses: [],
+    attendance: [],
     users: [],
     settings: { from: '', to: '', theme: 'dark' },
     session: null
@@ -25,7 +26,7 @@ function emptyState() {
 
 /** Repair missing server state fields without creating demo users or browser storage. */
 export function migrate(db) {
-  var arrays = ['users', 'employees', 'objects', 'timesheet', 'trips', 'vehicles', 'works', 'output', 'costs', 'payments'];
+  var arrays = ['users', 'employees', 'objects', 'timesheet', 'trips', 'vehicles', 'works', 'output', 'costs', 'payments', 'tripExpenses', 'attendance'];
   var index;
   if (!db || typeof db !== 'object' || Object.prototype.toString.call(db) === '[object Array]') db = {};
   for (index = 0; index < arrays.length; index += 1) {
@@ -167,7 +168,6 @@ export function replaceDB(next) {
       }
     } else DB[key] = incoming;
   }
-  saveGeneration += 1;
 }
 
 /** Load the authenticated workspace and its optimistic concurrency version. */
@@ -187,47 +187,42 @@ export function onPersistenceError(handler) {
 
 /** Save current records to PostgreSQL; no application data is written to browser storage. */
 export function save() {
-  var snapshot;
-  var generation = saveGeneration;
-  if (!getAuthToken()) return false;
-  try {
-    snapshot = JSON.parse(JSON.stringify(DB));
-  } catch (error) {
-    console.error('Ошибка подготовки состояния:', error);
-    if (persistenceErrorHandler) persistenceErrorHandler('Не удалось подготовить данные к отправке.');
-    return false;
-  }
-  saveQueue = saveQueue.then(function() {
-    if (generation !== saveGeneration) return null;
+  var operation;
+  if (!getAuthToken()) return Promise.resolve(false);
+  operation = saveQueue.then(function() {
+    var snapshot;
+    try {
+      snapshot = JSON.parse(JSON.stringify(DB));
+    } catch (error) {
+      console.error('Ошибка подготовки состояния:', error);
+      throw new Error('Не удалось подготовить данные к отправке.');
+    }
     return apiRequest('/api/state', {
       method: 'PUT',
       body: JSON.stringify({ version: version, db: snapshot })
     }).then(function(result) {
       version = result.version;
-      return result;
-    }).catch(function(error) {
-      if (error.status === 401) {
-        clearAuthToken();
-        if (persistenceErrorHandler) persistenceErrorHandler(error.message, error);
-        return null;
+      if (result.db) {
+        replaceDB(result.db);
+        if (result.user) DB.session = result.user.id;
       }
-      if (error.status === 409 || error.status >= 400) {
-        saveGeneration += 1;
-        return loadServerState().then(function() {
-          if (persistenceErrorHandler) persistenceErrorHandler(error.message, error);
-          return null;
-        }).catch(function(refreshError) {
-          if (persistenceErrorHandler) persistenceErrorHandler(refreshError.message || error.message, refreshError);
-          return null;
-        });
-      }
-      if (persistenceErrorHandler) persistenceErrorHandler(error.message, error);
-      return null;
+      return true;
     });
-  }).catch(function(error) {
+  });
+  saveQueue = operation.then(function() {}, function() {});
+  return operation.catch(function(error) {
+    if (error.status === 401) clearAuthToken();
+    if (error.status === 409 || error.status >= 400) {
+      return loadServerState().then(function() {
+        if (persistenceErrorHandler) persistenceErrorHandler(error.message, error);
+        return false;
+      }).catch(function(refreshError) {
+        if (persistenceErrorHandler) persistenceErrorHandler(refreshError.message || error.message, refreshError);
+        return false;
+      });
+    }
     console.error('Ошибка синхронизации с сервером:', error);
     if (persistenceErrorHandler) persistenceErrorHandler(error.message || 'Ошибка соединения с сервером.', error);
-    return null;
+    return false;
   });
-  return true;
 }

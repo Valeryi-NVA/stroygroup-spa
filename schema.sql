@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS crm_users (
   name TEXT NOT NULL,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'manager', 'foreman', 'accountant', 'designer', 'installer', 'worker')),
+  qr_token_hash TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -41,3 +42,5 @@ CREATE TABLE IF NOT EXISTS crm_audit_logs (
 CREATE INDEX IF NOT EXISTS crm_users_tenant_role_idx ON crm_users(tenant_id, role);
 CREATE INDEX IF NOT EXISTS crm_sessions_expiry_idx ON crm_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS crm_audit_tenant_created_idx ON crm_audit_logs(tenant_id, created_at DESC);
+ALTER TABLE crm_users ADD COLUMN IF NOT EXISTS qr_token_hash TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS crm_users_qr_token_idx ON crm_users(qr_token_hash) WHERE qr_token_hash IS NOT NULL;

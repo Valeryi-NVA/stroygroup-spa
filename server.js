@@ -4,6 +4,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import QRCode from 'qrcode';
 
 const root = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const port = Number(process.env.PORT || 10000);
@@ -19,12 +20,12 @@ const pool = new pg.Pool({
   connectionTimeoutMillis: 10000
 });
 
-const arrayKeys = ['employees', 'vehicles', 'works', 'objects', 'timesheet', 'trips', 'output', 'costs', 'payments'];
+const arrayKeys = ['employees', 'vehicles', 'works', 'objects', 'timesheet', 'trips', 'output', 'costs', 'payments', 'tripExpenses', 'attendance'];
 const roleWriteKeys = {
   admin: arrayKeys.concat(['settings']),
-  manager: ['objects', 'trips', 'costs', 'payments', 'settings'],
+  manager: ['objects', 'trips', 'costs', 'payments', 'tripExpenses', 'settings'],
   accountant: ['objects', 'costs', 'payments', 'settings'],
-  foreman: ['employees', 'vehicles', 'works', 'timesheet', 'trips', 'output', 'settings'],
+  foreman: ['employees', 'vehicles', 'works', 'timesheet', 'trips', 'output', 'tripExpenses', 'attendance', 'settings'],
   designer: ['settings'],
   installer: ['settings'],
   worker: ['settings']
@@ -90,8 +91,36 @@ function emptyState() {
     output: [],
     costs: [],
     payments: [],
+    tripExpenses: [],
+    attendance: [],
+    tripExpenses: [],
+    attendance: [],
     settings: { from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10), theme: 'dark' }
   };
+}
+
+function localDate() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.APP_TIMEZONE || 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function completeExpiredTrips(data) {
+  const currentDate = localDate();
+  let changed = false;
+  for (const trip of data.trips) {
+    if (trip && trip.date < currentDate && trip.status !== 'completed') {
+      trip.status = 'completed';
+      trip.completedAt = new Date().toISOString();
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function publicUser(user) {
@@ -164,7 +193,16 @@ async function stateFor(user) {
     pool.query('SELECT id, phone, name, role, created_at FROM crm_users WHERE tenant_id = $1 ORDER BY created_at', [user.tenant_id])
   ]);
   if (!stateResult.rowCount) throw new Error('Рабочее пространство не найдено');
-  const data = stateResult.rows[0].data;
+  const data = structuredClone(stateResult.rows[0].data);
+  for (const key of arrayKeys) if (!Array.isArray(data[key])) data[key] = [];
+  let version = stateResult.rows[0].version;
+  if (completeExpiredTrips(data)) {
+    const updated = await pool.query(
+      'UPDATE crm_state SET data = $1, version = version + 1, updated_at = NOW() WHERE tenant_id = $2 AND version = $3 RETURNING version',
+      [JSON.stringify(data), user.tenant_id, version]
+    );
+    if (updated.rowCount) version = updated.rows[0].version;
+  }
   const users = usersResult.rows.map(publicUser);
   if (user.role === 'worker' || user.role === 'installer') {
     const employee = data.employees.find((item) => normalizePhone(item.phone) === user.phone);
@@ -175,11 +213,142 @@ async function stateFor(user) {
     data.trips = data.trips.filter((item) => item.seniorId === employeeId || (item.crew || []).includes(employeeId));
     data.costs = [];
     data.payments = [];
+    data.tripExpenses = [];
+    data.attendance = data.attendance.filter((item) => item.empId === employeeId);
     data.users = users.filter((item) => item.id === user.id);
   } else {
     data.users = user.role === 'admin' ? users : users.filter((item) => item.id === user.id);
   }
-  return { db: data, user: publicUser(user), version: stateResult.rows[0].version, storage: 'postgresql' };
+  return { db: data, user: publicUser(user), version, storage: 'postgresql' };
+}
+
+async function newQrToken(userId) {
+  const token = randomBytes(32).toString('base64url');
+  await pool.query('UPDATE crm_users SET qr_token_hash = $1 WHERE id = $2', [hashToken(token), userId]);
+  return token;
+}
+
+async function qrCodeForUser(requestingUser, targetId, response) {
+  if (targetId !== requestingUser.id && requestingUser.role !== 'admin') {
+    send(response, 403, { error: 'Только администратор может открыть QR-код другого пользователя' });
+    return;
+  }
+  const result = await pool.query(
+    'SELECT id, tenant_id, phone, name, role, created_at FROM crm_users WHERE id = $1 AND tenant_id = $2',
+    [targetId, requestingUser.tenant_id]
+  );
+  if (!result.rowCount) {
+    send(response, 404, { error: 'Пользователь не найден' });
+    return;
+  }
+  const token = await newQrToken(targetId);
+  const svg = await QRCode.toString(`nva-crm:auth:${token}`, { type: 'svg', margin: 1, width: 260 });
+  send(response, 200, { svg, user: publicUser(result.rows[0]) });
+}
+
+async function qrLogin(input, response) {
+  const rawToken = String(input.token || '');
+  const token = rawToken.indexOf('nva-crm:auth:') === 0 ? rawToken.slice('nva-crm:auth:'.length) : rawToken;
+  if (!/^[A-Za-z0-9_-]{30,}$/.test(token)) {
+    send(response, 400, { error: 'Некорректный QR-код' });
+    return;
+  }
+  const client = await pool.connect();
+  try {
+    const result = await client.query(
+      'SELECT id, tenant_id, phone, name, role, created_at FROM crm_users WHERE qr_token_hash = $1',
+      [hashToken(token)]
+    );
+    if (!result.rowCount) {
+      send(response, 401, { error: 'QR-код недействителен или был перевыпущен' });
+      return;
+    }
+    const sessionToken = await issueSession(client, result.rows[0].id);
+    send(response, 200, { user: publicUser(result.rows[0]), token: sessionToken });
+  } finally {
+    client.release();
+  }
+}
+
+async function recordAttendance(user, input, response) {
+  const event = String(input.event || '');
+  if (['trip_start', 'workshop_start', 'workshop_end'].indexOf(event) === -1) {
+    send(response, 400, { error: 'Недопустимый тип QR-отметки' });
+    return;
+  }
+
+  async function autoCompleteTrips() {
+    const result = await pool.query('SELECT tenant_id, version, data FROM crm_state');
+    for (const row of result.rows) {
+      const data = structuredClone(row.data);
+      for (const key of arrayKeys) if (!Array.isArray(data[key])) data[key] = [];
+      if (!completeExpiredTrips(data)) continue;
+      await pool.query(
+        'UPDATE crm_state SET data = $1, version = version + 1, updated_at = NOW() WHERE tenant_id = $2 AND version = $3',
+        [JSON.stringify(data), row.tenant_id, row.version]
+      );
+    }
+  }
+  const token = String(input.token || '');
+  let employee = user;
+  if (token) {
+    const target = await pool.query(
+      'SELECT id, tenant_id, phone, name, role, created_at FROM crm_users WHERE qr_token_hash = $1 AND tenant_id = $2',
+      [hashToken(token.replace(/^nva-crm:auth:/, '')), user.tenant_id]
+    );
+    if (!target.rowCount) {
+      send(response, 401, { error: 'QR-код недействителен' });
+      return;
+    }
+    if (target.rows[0].id !== user.id && user.role !== 'admin' && user.role !== 'foreman') {
+      send(response, 403, { error: 'Недостаточно прав для отметки другого сотрудника' });
+      return;
+    }
+    employee = target.rows[0];
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query('SELECT version, data FROM crm_state WHERE tenant_id = $1 FOR UPDATE', [user.tenant_id]);
+    if (!currentResult.rowCount) throw new Error('Рабочее пространство не найдено');
+    const current = currentResult.rows[0];
+    const data = structuredClone(current.data);
+    if (!Array.isArray(data.attendance)) data.attendance = [];
+    if (!Array.isArray(data.trips)) data.trips = [];
+    const employeeRecord = data.employees.find((item) => item && item.phone && normalizePhone(item.phone) === employee.phone);
+    const empId = employeeRecord ? employeeRecord.id : employee.id;
+    if (event === 'trip_start' && !data.trips.some((trip) =>
+      trip.status !== 'completed' && (trip.seniorId === empId || (trip.crew || []).indexOf(empId) !== -1)
+    )) {
+      await client.query('ROLLBACK');
+      send(response, 400, { error: 'Для сотрудника нет активного выезда на сегодня' });
+      return;
+    }
+    data.attendance.push({
+      id: randomUUID(),
+      empId,
+      event,
+      date: localDate(),
+      at: new Date().toISOString()
+    });
+    const updated = await client.query(
+      'UPDATE crm_state SET data = $1, version = version + 1, updated_at = NOW() WHERE tenant_id = $2 AND version = $3 RETURNING version',
+      [JSON.stringify(data), user.tenant_id, current.version]
+    );
+    if (!updated.rowCount) {
+      await client.query('ROLLBACK');
+      send(response, 409, { error: 'Данные изменились в другом сеансе. Повторите отметку.' });
+      return;
+    }
+    await audit(client, user, 'CREATE', 'Attendance', employee.id);
+    await client.query('COMMIT');
+    send(response, 200, { ok: true, event, employee: publicUser(employee), ...(await stateFor(user)) });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function audit(client, user, action, entity, entityId) {
@@ -212,10 +381,10 @@ async function register(input, request, response) {
       [tenantId, tenantName || `Компания ${name}`]
     );
     const userResult = await client.query(
-      `INSERT INTO crm_users (id, tenant_id, phone, name, password_hash, role)
-       VALUES ($1, $2, $3, $4, $5, 'admin')
+      `INSERT INTO crm_users (id, tenant_id, phone, name, password_hash, role, qr_token_hash)
+       VALUES ($1, $2, $3, $4, $5, 'admin', $6)
        RETURNING id, tenant_id, phone, name, role, created_at`,
-      [id, tenantId, phone, name, hashPassword(password)]
+      [id, tenantId, phone, name, hashPassword(password), hashToken(randomBytes(32).toString('base64url'))]
     );
     await client.query('INSERT INTO crm_state (tenant_id, data) VALUES ($1, $2)', [tenantId, JSON.stringify(emptyState())]);
     await audit(client, userResult.rows[0], 'REGISTER', 'Tenant', tenantId);
@@ -336,7 +505,8 @@ async function saveState(user, input, response) {
     }
     await audit(client, user, 'UPDATE_STATE', 'State', user.tenant_id);
     await client.query('COMMIT');
-    send(response, 200, { ok: true, version: updated.rows[0].version });
+    const state = await stateFor(user);
+    send(response, 200, { ok: true, ...state });
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -360,10 +530,10 @@ async function createUser(user, input, response) {
   }
   try {
     const result = await pool.query(
-      `INSERT INTO crm_users (id, tenant_id, phone, name, password_hash, role)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO crm_users (id, tenant_id, phone, name, password_hash, role, qr_token_hash)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, phone, name, role, created_at`,
-      [randomUUID(), user.tenant_id, phone, name, hashPassword(password), role]
+      [randomUUID(), user.tenant_id, phone, name, hashPassword(password), role, hashToken(randomBytes(32).toString('base64url'))]
     );
     await pool.query(
       'INSERT INTO crm_audit_logs (tenant_id, user_id, action, entity, entity_id) VALUES ($1, $2, $3, $4, $5)',
@@ -442,6 +612,10 @@ const server = createServer(async (request, response) => {
       await login(await readBody(request), request, response);
       return;
     }
+    if (url.pathname === '/api/auth/qr/login' && request.method === 'POST') {
+      await qrLogin(await readBody(request), response);
+      return;
+    }
     if (url.pathname.startsWith('/api/')) {
       const user = await authenticatedUser(request);
       if (!user) {
@@ -459,6 +633,19 @@ const server = createServer(async (request, response) => {
       }
       if (url.pathname === '/api/state' && request.method === 'PUT') {
         await saveState(user, await readBody(request), response);
+        return;
+      }
+      if (url.pathname === '/api/auth/qr-code' && request.method === 'GET') {
+        await qrCodeForUser(user, user.id, response);
+        return;
+      }
+      if (url.pathname.startsWith('/api/users/') && url.pathname.endsWith('/qr-code') && request.method === 'GET') {
+        const targetId = url.pathname.slice('/api/users/'.length, -'/qr-code'.length);
+        await qrCodeForUser(user, targetId, response);
+        return;
+      }
+      if (url.pathname === '/api/attendance/scan' && request.method === 'POST') {
+        await recordAttendance(user, await readBody(request), response);
         return;
       }
       if (url.pathname === '/api/users' && request.method === 'POST') {
@@ -479,6 +666,11 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, '0.0.0.0', () => console.log(`NVA-CRM listening on ${port}`));
+autoCompleteTrips().catch((error) => console.error('NVA-CRM automatic trip completion failed:', error));
+const autoCompletionTimer = setInterval(() => {
+  autoCompleteTrips().catch((error) => console.error('NVA-CRM automatic trip completion failed:', error));
+}, 60000);
+autoCompletionTimer.unref();
 
 async function shutdown() {
   server.close();

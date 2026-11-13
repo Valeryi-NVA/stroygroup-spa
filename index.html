@@ -32,6 +32,13 @@
         </label>
         <div id="loginError" class="auth-error" role="alert"></div>
         <button type="submit" class="btn primary">Войти</button>
+        <button type="button" class="btn" id="qrLoginBtn">Войти по QR-коду</button>
+        <div id="qrLoginPanel" class="qr-panel" hidden>
+          <video id="qrLoginVideo" class="qr-video" playsinline muted></video>
+          <div id="qrLoginStatus" class="sub">Наведите камеру на QR-код.</div>
+          <label class="fld">Или вставьте код<input id="qrLoginToken" autocomplete="off"></label>
+          <button type="button" class="btn" id="qrLoginSubmit">Войти по коду</button>
+        </div>
         <div class="auth-hint">Войдите в рабочее пространство вашей компании.</div>
       </form>
 
@@ -76,6 +83,7 @@
           <div class="user-role" id="userRole">—</div>
         </div>
         <button class="btn ghost" type="button" id="themeToggle" aria-label="Переключить тему">Светлая тема</button>
+        <button class="btn ghost" type="button" id="qrAttendanceBtn">QR-отметка</button>
         <button class="btn ghost" type="button" id="logoutBtn" title="Выйти">Выйти</button>
       </div>
     </header>

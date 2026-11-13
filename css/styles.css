@@ -82,6 +82,11 @@ body {
   cursor: pointer;
 }
 .quick-admin:hover { background: #eef2f7; border-color: #2563eb; }
+.qr-panel { display: grid; gap: 10px; margin-top: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.qr-video { display: block; width: 100%; max-height: 280px; border-radius: 10px; background: #101512; object-fit: cover; }
+.qr-dialog { width: min(94vw, 460px); }
+.qr-image { display: grid; place-items: center; padding: 8px; background: #fff; border-radius: 10px; }
+.qr-image svg { display: block; width: min(100%, 260px); height: auto; }
 
 .topbar {
   display: flex;
@@ -373,13 +378,39 @@ body[data-theme="light"] tbody tr:hover { background: rgba(22, 132, 70, .055); }
   .card .v { font-size: clamp(17px, 4vw, 21px); overflow-wrap: anywhere; }
   .table-wrap {
     max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
+    overflow: visible;
   }
-  table { min-width: 620px; }
-  .mini { min-width: 420px; }
-  th, td { padding: 10px 11px; }
+  table, .mini { display: block; min-width: 0; }
+  table thead { display: none; }
+  table tbody, table tr { display: block; }
+  table tr {
+    margin: 0;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  table tr:last-child { border-bottom: 0; }
+  table td {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    min-width: 0;
+    padding: 6px 11px;
+    border-bottom: 0;
+    overflow-wrap: anywhere;
+  }
+  table td::before {
+    flex: 0 0 38%;
+    color: var(--muted);
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  table td:empty::before,
+  table td[data-label=""]::before { display: none; }
+  table td:empty { display: none; }
+  table td > * { max-width: 100%; }
   .panel { padding: 14px; }
   .panel-head { gap: 10px; }
   .money { gap: 10px 16px; }

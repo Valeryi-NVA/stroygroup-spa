@@ -15,7 +15,9 @@ export function table(columns, rows, emptyText) {
   html += '</tr></thead><tbody>';
   for (var rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
     html += '<tr>';
-    for (index = 0; index < columns.length; index += 1) html += '<td>' + columns[index].f(rows[rowIndex]) + '</td>';
+    for (index = 0; index < columns.length; index += 1) {
+      html += '<td data-label="' + esc(columns[index].t) + '">' + columns[index].f(rows[rowIndex]) + '</td>';
+    }
     html += '</tr>';
   }
   return html + '</tbody></table></div>';
@@ -83,6 +85,8 @@ export function openForm(title, fields, data, onSave) {
     var inputs = body.querySelectorAll('[data-key]');
     var checks = body.querySelectorAll('[data-check]');
     var fieldIndex;
+    var saveResult;
+    var saveButton = $('#dlgSave');
     for (fieldIndex = 0; fieldIndex < inputs.length; fieldIndex += 1) {
       result[inputs[fieldIndex].getAttribute('data-key')] = inputs[fieldIndex].type === 'number' ? num(inputs[fieldIndex].value) : inputs[fieldIndex].value;
     }
@@ -91,7 +95,22 @@ export function openForm(title, fields, data, onSave) {
       if (!result[key]) result[key] = [];
       if (checks[fieldIndex].checked) result[key].push(checks[fieldIndex].value);
     }
-    if (onSave(result) !== false) dialog.close();
+    try {
+      saveResult = onSave(result);
+    } catch (error) {
+      setFormError(error.message || 'Не удалось сохранить данные.');
+      return;
+    }
+    if (saveResult && typeof saveResult.then === 'function') {
+      saveButton.disabled = true;
+      saveResult.then(function(saved) {
+        saveButton.disabled = false;
+        if (saved !== false) dialog.close();
+      }).catch(function(error) {
+        saveButton.disabled = false;
+        setFormError(error.message || 'Не удалось сохранить данные.');
+      });
+    } else if (saveResult !== false) dialog.close();
   };
   if (!dialog.open) dialog.showModal();
 }

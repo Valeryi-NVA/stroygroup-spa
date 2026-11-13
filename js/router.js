@@ -91,8 +91,9 @@ export function bindRouter(actions) {
     var target = event.target;
     if (target.getAttribute('data-period')) {
       DB.settings[target.getAttribute('data-period')] = target.value;
-      if (!save()) return;
-      renderApp();
+      save().then(function(saved) {
+        if (saved) renderApp();
+      });
     } else if (target.getAttribute('data-role-for') && actions['user-role']) {
       actions['user-role']({ id: target.getAttribute('data-role-for'), role: target.value });
     }

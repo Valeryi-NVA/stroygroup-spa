@@ -2,8 +2,9 @@ import { DB, replaceDB, save, seed } from './storage.js';
 import { findById } from './business.js';
 import { getCurrentUser } from './auth.js';
 import { renderApp } from './router.js?v=mobile-drawer-20261111';
-import { formCost, formEmployee, formObject, formOutput, formPayment, formTimesheet, formTrip, formUser, formVehicle, formWork } from './forms.js';
+import { formCost, formEmployee, formObject, formOutput, formPayment, formTimesheet, formTrip, formTripExpense, formUser, formVehicle, formWork } from './forms.js';
 import { showMessage } from './ui.js';
+import { showQrCode } from './qr.js';
 
 function removeRecord(collection, id, message) {
   var snapshot;
@@ -11,8 +12,10 @@ function removeRecord(collection, id, message) {
   if (!window.confirm(message)) return;
   snapshot = JSON.stringify(DB);
   for (index = collection.length - 1; index >= 0; index -= 1) if (collection[index].id === id) collection.splice(index, 1);
-  if (save()) renderApp();
-  else replaceDB(JSON.parse(snapshot));
+  save().then(function(saved) {
+    if (saved) renderApp();
+    else replaceDB(JSON.parse(snapshot));
+  });
 }
 
 /** Handle CRUD operations for the local demo application. */
@@ -20,13 +23,18 @@ export var ACTIONS = {
   reset: function() {
     var users;
     var session;
+    var snapshot;
     if (!window.confirm('Удалить все данные рабочей области компании? Это действие нельзя отменить.')) return;
+    snapshot = JSON.stringify(DB);
     users = DB.users.slice();
     session = DB.session;
     replaceDB(seed());
     DB.users = users;
     DB.session = session;
-    if (save()) renderApp();
+    save().then(function(saved) {
+      if (saved) renderApp();
+      else replaceDB(JSON.parse(snapshot));
+    });
   },
   'obj-add': function() { formObject(null); },
   'obj-edit': function(data) { formObject(findById(DB.objects, data.id)); },
@@ -40,6 +48,8 @@ export var ACTIONS = {
   'trip-add': function() { formTrip(null); },
   'trip-edit': function(data) { formTrip(findById(DB.trips, data.id)); },
   'trip-del': function(data) { removeRecord(DB.trips, data.id, 'Удалить выезд?'); },
+  'trip-exp-add': function(data) { formTripExpense(null, data.id); },
+  'trip-exp-del': function(data) { removeRecord(DB.tripExpenses, data.id, 'Удалить расход по выезду?'); },
   'work-add': function() { formWork(null); },
   'work-edit': function(data) { formWork(findById(DB.works, data.id)); },
   'work-del': function(data) { removeRecord(DB.works, data.id, 'Удалить расценку?'); },
@@ -65,6 +75,7 @@ export var ACTIONS = {
     removeRecord(DB.users, target.id, 'Удалить пользователя «' + target.name + '»?');
   },
   'user-add': function() { formUser(); },
+  'user-qr': function(data) { showQrCode(data.id); },
   'user-role': function(data) {
     var me = getCurrentUser();
     var target = findById(DB.users, data.id);
@@ -83,10 +94,12 @@ export var ACTIONS = {
     }
     snapshot = JSON.stringify(DB);
     target.role = data.role;
-    if (save()) renderApp();
-    else {
-      replaceDB(JSON.parse(snapshot));
-      renderApp();
-    }
+    save().then(function(saved) {
+      if (saved) renderApp();
+      else {
+        replaceDB(JSON.parse(snapshot));
+        renderApp();
+      }
+    });
   }
 };

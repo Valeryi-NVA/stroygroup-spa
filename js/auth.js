@@ -2,6 +2,7 @@ import { DB, apiRequest, clearAuthToken, getAuthToken, loadServerState, save, se
 import { ROLES_DEF, canAccess } from './roles.js';
 import { $, formatPhone, normalizePhone } from './utils.js';
 import { renderApp } from './router.js?v=mobile-drawer-20261111';
+import { bindQrLogin } from './qr.js';
 
 /** Return the logged-in user or null. */
 export function getCurrentUser() {
@@ -122,10 +123,13 @@ export function initAuth() {
   $('#tabRegister').addEventListener('click', function() { switchAuthTab(false); });
   $('#loginForm').addEventListener('submit', login);
   $('#registerForm').addEventListener('submit', register);
+  bindQrLogin(function(result) {
+    return finishAuthentication(result, $('#loginError'));
+  });
   $('#themeToggle').addEventListener('click', function() {
     DB.settings.theme = DB.settings.theme === 'light' ? 'dark' : 'light';
     updateTheme();
-    if (!save()) return;
+    save();
   });
   $('#logoutBtn').addEventListener('click', function() {
     if (!window.confirm('Выйти из системы?')) return;
